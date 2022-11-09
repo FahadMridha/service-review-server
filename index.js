@@ -24,7 +24,7 @@ async function run() {
     const servicesCollection = client
       .db("servicesReview")
       .collection("services");
-
+    const reviewCollection = client.db("servicesReview").collection("reviews");
     app.get("/services", async (req, res) => {
       const size = parseInt(req.query.size);
       // console.log("size:", size);
@@ -40,6 +40,13 @@ async function run() {
       const service = await servicesCollection.findOne(query);
 
       res.send(service);
+    });
+    //review api
+
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
     });
   } catch (error) {}
 }
