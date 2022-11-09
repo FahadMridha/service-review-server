@@ -27,7 +27,7 @@ async function run() {
 
     app.get("/services", async (req, res) => {
       const size = parseInt(req.query.size);
-      console.log("size:", size);
+      // console.log("size:", size);
       const query = {};
       const cursor = servicesCollection.find(query);
       const services = await cursor.limit(size).toArray();
