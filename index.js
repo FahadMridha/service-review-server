@@ -29,7 +29,7 @@ async function run() {
       const size = parseInt(req.query.size);
       // console.log("size:", size);
       const query = {};
-      const cursor = servicesCollection.find(query);
+      const cursor = servicesCollection.find(query).sort({ timestamp: -1 });
       const services = await cursor.limit(size).toArray();
       res.send(services);
     });
@@ -41,11 +41,52 @@ async function run() {
 
       res.send(service);
     });
+
     //review api
+    // app.get("/reviews", async (req, res) => {
+    //   const query = {};
+    //   const cursor = reviewCollection.find(query);
+    //   const reviews = await cursor.toArray();
+    //   res.send(reviews);
+    // });
+    // app.get("/reviews", async (req, res) => {
+    //   let query = {};
+    //   const id = req.query.serviceID;
+
+    //   if (id) {
+    //     query = {
+    //       serviceID: id,
+    //     };
+    //   }
+    //   const cursor = reviewCollection.find(query).sort({ timestamp: -1 });
+    //   const review = await cursor.toArray();
+
+    //   res.send(review);
+    // });
+    app.get("/reviews", async (req, res) => {
+      let query = {};
+      const email = req.query.email;
+      console.log(email);
+
+      if (email) {
+        query = {
+          email: email,
+        };
+      }
+      const cursor = reviewCollection.find(query).sort({ timestamp: -1 });
+      const review = await cursor.toArray();
+
+      res.send(review);
+    });
 
     app.post("/reviews", async (req, res) => {
       const review = req.body;
       const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    });
+    app.post("/services", async (req, res) => {
+      const service = req.body;
+      const result = await servicesCollection.insertOne(service);
       res.send(result);
     });
   } catch (error) {}
