@@ -19,12 +19,40 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+function auth(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthenticated" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.ACESS_TOKEN_SECRET, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden Access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
 async function run() {
   try {
     const servicesCollection = client
       .db("servicesReview")
       .collection("services");
     const reviewCollection = client.db("servicesReview").collection("reviews");
+
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      // console.log(user);
+      const token = jwt.sign(user, process.env.ACESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
     app.get("/services", async (req, res) => {
       const size = parseInt(req.query.size);
       // console.log("size:", size);
@@ -43,30 +71,13 @@ async function run() {
     });
 
     //review api
-    // app.get("/reviews", async (req, res) => {
-    //   const query = {};
-    //   const cursor = reviewCollection.find(query);
-    //   const reviews = await cursor.toArray();
-    //   res.send(reviews);
-    // });
-    // app.get("/reviews", async (req, res) => {
-    //   let query = {};
-    //   const id = req.query.serviceID;
 
-    //   if (id) {
-    //     query = {
-    //       serviceID: id,
-    //     };
-    //   }
-    //   const cursor = reviewCollection.find(query).sort({ timestamp: -1 });
-    //   const review = await cursor.toArray();
-
-    //   res.send(review);
-    // });
-    app.get("/reviews", async (req, res) => {
+    app.get("/my-reviews", auth, async (req, res) => {
+      if (req.decoded.email !== req.query.email) {
+        res.status(403).send({ message: "invalid token" });
+      }
       let query = {};
       const email = req.query.email;
-      console.log(email);
 
       if (email) {
         query = {
@@ -79,10 +90,15 @@ async function run() {
       res.send(review);
     });
 
-    app.get("/reviews/id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const review = await reviewCollection.findOne(query);
+    app.get("/reviews", async (req, res) => {
+      let query = {};
+      if (req.query.serviceID) {
+        query = {
+          serviceID: req.query.serviceID,
+        };
+      }
+      const cursor = reviewCollection.find(query).sort({ timestamp: -1 });
+      const review = await cursor.toArray();
       res.send(review);
     });
     app.get("/reviews", async (req, res) => {
@@ -90,6 +106,30 @@ async function run() {
       const result = await reviewCollection.find(query);
       res.send(result);
     });
+    app.get("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const review = await reviewCollection.findOne(query);
+
+      res.send(review);
+    });
+    //update reviews
+
+    app.patch("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
+      const query = { _id: ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: status,
+        },
+      };
+      const result = await reviewCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    //delete reviews
+
     app.delete("/reviews/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
@@ -97,6 +137,11 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/reviews", async (req, res) => {
+      const reviews = req.body;
+      const result = await reviewCollection.insertOne(reviews);
+      res.send(result);
+    });
     app.post("/services", async (req, res) => {
       const service = req.body;
       const result = await servicesCollection.insertOne(service);
